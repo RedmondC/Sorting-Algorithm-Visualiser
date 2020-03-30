@@ -1,0 +1,480 @@
+import pygame
+import sys
+from pygame.locals import *
+import random
+import math
+import threading
+
+
+class sortVisualiser(object):
+
+  # Rectangles to be sorted class declaration
+
+  class colouredRectangle(object):
+
+    def __init__(self, x, y, edgeSize, colour, window):
+
+      self.x = x
+      self.y = y
+      self.edgeSize = edgeSize
+      self.colour = colour
+      self.window = window
+
+    def draw(self):
+      pygame.draw.rect(self.window, self.colour, (self.x, self.y, self.edgeSize, self.edgeSize))
+
+  # Start of sorting algorithms
+
+  def bubbleSort(self, pixels, input, offset):
+    self.fontPrint("Bubble", offset)
+
+    if(input == 'f'):
+      finished = False
+      while finished == False:
+        finished = True
+        for i in range(len(pixels) - 1):
+          if(pixels[i].colour.hsva[0] > pixels[i + 1].colour.hsva[0]):
+            pixels[i], pixels[i + 1] = pixels[i + 1], pixels[i]
+            self.fullDraw(pixels, offset)
+            finished = False
+      return pixels
+    else:
+      sorted = []
+      for i in range(self.pixelY):
+        temp = pixels[i * self.pixelX:i * self.pixelX + self.pixelX]
+        finished = False
+        while finished == False:
+          finished = True
+          for i in range(len(temp) - 1):
+            if(temp[i].colour.hsva[0] > temp[i + 1].colour.hsva[0]):
+              temp[i], temp[i + 1] = temp[i + 1], temp[i]
+              finished = False
+
+        temp = self.rowDraw(temp, offset)
+        sorted.extend(temp)
+
+      return sorted
+
+  def cocktailSort(self, pixels, input, offset):
+    self.fontPrint("Cocktail", offset)
+    if input == 'f':
+      swapMade = True
+      endPoint = len(pixels)
+      startPoint = 0
+      while (swapMade == True):
+
+        swapMade = False
+        for i in range(startPoint, endPoint - 1):
+          if (pixels[i].colour.hsva[0] > pixels[i + 1].colour.hsva[0]):
+            pixels[i], pixels[i + 1] = pixels[i + 1], pixels[i]
+            swapMade = True
+            self.fullDraw(pixels, offset)
+
+        if (swapMade == False):
+          break
+
+        swapMade = False
+        endPoint -= 1
+        for i in range(endPoint - 1, startPoint - 1, -1):
+          if (pixels[i].colour.hsva[0] > pixels[i + 1].colour.hsva[0]):
+            pixels[i], pixels[i + 1] = pixels[i + 1], pixels[i]
+            swapMade = True
+            self.fullDraw(pixels, offset)
+
+        startPoint += 1
+      return pixels
+    else:
+      sorted = []
+      for j in range(self.pixelY):
+        temp = pixels[j * self.pixelX:j * self.pixelX + self.pixelX]
+        startPoint = 0
+        endPoint = len(temp)
+        swapMade = True
+        while (swapMade == True):
+          swapMade = False
+          for i in range(startPoint, endPoint - 1):
+            if (temp[i].colour.hsva[0] > temp[i + 1].colour.hsva[0]):
+              temp[i], temp[i + 1] = temp[i + 1], temp[i]
+              swapMade = True
+              self.rowDraw(temp, offset)
+
+          if (swapMade == False):
+            break
+
+          swapMade = False
+          endPoint -= 1
+          for i in range(endPoint - 1, startPoint - 1, -1):
+            if (temp[i].colour.hsva[0] > temp[i + 1].colour.hsva[0]):
+              temp[i], temp[i + 1] = temp[i + 1], temp[i]
+              swapMade = True
+              self.rowDraw(temp, offset)
+
+          startPoint += 1
+
+        temp = self.rowDraw(temp, offset)
+        sorted.extend(temp)
+
+    return sorted
+
+  def selectionSort(self, pixels, input, offset):
+    self.fontPrint("Selection", offset)
+
+    if(input == 'f'):
+      for j in range(len(pixels) - 1):
+        tempMin = j
+        for k in range(j + 1, len(pixels)):
+          if(pixels[k].colour.hsva[0] < pixels[tempMin].colour.hsva[0]):
+            tempMin = k
+        pixels[j], pixels[tempMin] = pixels[tempMin], pixels[j]
+        pixels = self.fullDraw(pixels, offset)
+      return pixels
+    else:
+      sorted = []
+      for i in range(self.pixelY):
+        temp = pixels[i * self.pixelX:i * self.pixelX + self.pixelX]
+
+        for j in range(len(temp) - 1):
+          tempMin = j
+          for k in range(j + 1, len(temp)):
+            if(temp[k].colour.hsva[0] < temp[tempMin].colour.hsva[0]):
+              tempMin = k
+          temp[j], temp[tempMin] = temp[tempMin], temp[j]
+
+        temp = self.rowDraw(temp, offset)
+        sorted.extend(temp)
+
+    return sorted
+
+  def insertionSort(self, pixels, input, offset):
+    self.fontPrint("Insertion", offset)
+
+    if input == 'f':
+      for i in range(1, len(pixels)):
+        key = pixels[i]
+
+        j = i - 1
+        while j >= 0 and pixels[j].colour.hsva[0] > key.colour.hsva[0]:
+          pixels[j + 1] = pixels[j]
+          self.fullDraw(pixels, offset)
+          j -= 1
+
+        pixels[j + 1] = key
+
+      pixels = self.fullDraw(pixels, offset)
+
+      return pixels
+    else:
+      sorted = []
+      for i in range(self.pixelY):
+        temp = pixels[i * self.pixelX:i * self.pixelX + self.pixelX]
+
+        for i in range(1, len(temp)):
+          key = temp[i]
+
+          j = i - 1
+          while j >= 0 and temp[j].colour.hsva[0] > key.colour.hsva[0]:
+            temp[j + 1] = temp[j]
+            j -= 1
+
+          temp[j + 1] = key
+
+        temp = self.rowDraw(temp, offset)
+        sorted.extend(temp)
+
+      return sorted
+
+  # Start of the actually good sorting algorithms
+  # Merge
+
+  def merge(self, pixels, leftIndex, offset):
+    if len(pixels) > 1:
+      middleIndex = len(pixels) // 2
+      L = pixels[:middleIndex]
+      R = pixels[middleIndex:]
+
+      self.merge(L, leftIndex, offset)
+      self.merge(R, middleIndex, offset)
+
+      i = j = k = 0
+
+      while i < len(L) and j < len(R):
+        if L[i].colour.hsva[0] < R[j].colour.hsva[0]:
+          pixels[k] = L[i]
+          i += 1
+        else:
+          pixels[k] = R[j]
+          j += 1
+        k += 1
+
+      while i < len(L):
+        pixels[k] = L[i]
+        i += 1
+        k += 1
+
+      while j < len(R):
+        pixels[k] = R[j]
+        j += 1
+        k += 1
+
+    if len(pixels) > 100:
+      pixels = self.fullDraw(pixels, offset)
+
+  def mergeSort(self, pixels, offset):
+    self.fontPrint("Merge", offset)
+
+    self.merge(pixels, 0, offset)
+    return pixels
+
+  # Shell
+
+  def shellSort(self, pixels, input, offset):
+    self.fontPrint("Shell", offset)
+
+    if input == 'f':
+      gap = len(pixels) // 2
+
+      while gap > 0:
+
+        for i in range(gap, len(pixels)):
+
+          temp = pixels[i]
+
+          j = i
+          while j >= gap and pixels[j - gap].colour.hsva[0] > temp.colour.hsva[0]:
+            pixels[j] = pixels[j - gap]
+            j -= gap
+
+          pixels[j] = temp
+
+        pixels = self.fullDraw(pixels, offset)
+        gap //= 2
+      return pixels
+    else:
+      sorted = []
+      for i in range(self.pixelY):
+        temp = pixels[i * self.pixelX:i * self.pixelX + self.pixelX]
+
+        gap = self.pixelX // 2
+
+        while gap > 0:
+          for i in range(gap, self.pixelX):
+
+            tempRect = temp[i]
+
+            j = i
+            while j >= gap and temp[j - gap].colour.hsva[0] > tempRect.colour.hsva[0]:
+              temp[j] = temp[j - gap]
+              j -= gap
+
+            temp[j] = tempRect
+
+          temp = self.rowDraw(temp, offset)
+          gap //= 2
+
+        sorted.extend(temp)
+      return sorted
+
+  # Heap
+
+  def heapify(self, pixels, numOfItems, root, offset):
+
+    biggest = root
+    left = 2 * root + 1
+    right = 2 * root + 2
+
+    if left < numOfItems and pixels[root].colour.hsva[0] < pixels[left].colour.hsva[0]:
+      biggest = left
+
+    if right < numOfItems and pixels[biggest].colour.hsva[0] < pixels[right].colour.hsva[0]:
+      biggest = right
+
+    if biggest != root:
+      pixels[root], pixels[biggest] = pixels[biggest], pixels[root]
+      self.heapify(pixels, numOfItems, biggest, offset)
+
+    return pixels
+
+  def heapSort(self, pixels, offset):
+    self.fontPrint("Heap", offset)
+    pygame.display.update()
+    for i in range(len(pixels), -1, -1):
+      pixels = self.heapify(pixels, len(pixels), i, offset)
+
+    self.fullDraw(pixels, offset)
+
+    for i in range(len(pixels) - 1, 0, -1):
+      pixels[i], pixels[0] = pixels[0], pixels[i]
+      pixels = self.heapify(pixels, i, 0, offset)
+
+    self.fullDraw(pixels, offset)
+    return pixels
+
+  # Quick
+
+  def partition(self, pixels, low, high):
+    index = (low - 1)
+    pivot = pixels[high]
+
+    for j in range(low, high):
+      if pixels[j].colour.hsva[0] < pivot.colour.hsva[0]:
+        index = index + 1
+        pixels[index], pixels[j] = pixels[j], pixels[index]
+
+    pixels[index + 1], pixels[high] = pixels[high], pixels[index + 1]
+    return (index + 1)
+
+  def quick(self, pixels, low, high, offset):
+    self.QuickSortTotal += 1
+
+    if self.QuickSortTotal >= len(pixels) // 6:
+      self.fullDraw(pixels, offset)
+      self.QuickSortTotal = 0
+
+    if low < high:
+      part = self.partition(pixels, low, high)
+      self.quick(pixels, low, part - 1, offset)
+      self.quick(pixels, part + 1, high, offset)
+
+  def quicksort(self, pixels, offset):
+    self.QuickSortTotal = 0
+    self.fontPrint("Quick", offset)
+    self.quick(pixels, 0, len(pixels) - 1, offset)
+    self.fullDraw(pixels, offset)
+
+  # God Tier sorting
+
+  def bogoSort(self, pixels, offset):
+    self.fontPrint("Bogo", offset)
+
+    end = False
+    count = 0
+    while end == False:
+      random.shuffle(pixels)
+      pixels = self.fullDraw(pixels, offset)
+      end = True
+
+      for i in range(len(pixels) - 1):
+        if pixels[i].colour.hsva[0] > pixels[i + 1].colour.hsva[0]:
+          count += 1
+          end = False
+          break
+    print("finished in only ", count, "iterations!!")
+    return pixels
+
+  # Drawing functions
+
+  def rowDraw(self, pixels, offset):
+    for i in range(len(pixels)):
+      pixels[i].x = (i % self.pixelX) * self.edgeSize + (offset * self.edgeSize)
+      pixels[i].draw()
+
+    pygame.display.update()
+    return pixels
+
+  def fullDraw(self, pixels, offset):
+    for j in range(len(pixels)):
+      pixels[j].x = (j % self.pixelX) * self.edgeSize + (offset * self.edgeSize)
+      pixels[j].y = (j // self.pixelX) * self.edgeSize
+      pixels[j].draw()
+    pygame.display.update()
+    return pixels
+
+  def fontPrint(self, textInput, offset):
+    textSize = 32
+    if((self.pixelX * self.edgeSize) // 9 < textSize):
+      textSize = (self.pixelX * self.edgeSize) // 9
+
+    font = pygame.font.Font('freesansbold.ttf', textSize)
+    text = font.render(textInput, True, (255, 255, 255), (0, 0, 0))
+    textRect = text.get_rect()
+    textRect.center = ((offset * self.edgeSize) + ((self.pixelX * self.edgeSize) // 2), (self.pixelY * self.edgeSize) + 15)
+    self.screen.blit(text, textRect)
+    pygame.display.update()
+
+  def displayArray(self, pixels):
+    for draw in range(len(pixels)):
+      pixels[draw].draw()
+
+    pygame.display.update()
+
+  ##Initialiser and Threading
+
+  def initialiseArray(self, pixels, offset):
+    for i in range(self.pixelY):
+      for k in range(self.pixelX):
+        col = pygame.Color(0)
+        col.hsva = ((k % self.pixelX) * (360 / self.pixelX), 100, 50, 0.3)
+        pixels.append(self.colouredRectangle((k * self.edgeSize) + (self.edgeSize * offset), i * self.edgeSize, self.edgeSize, col, self.screen))
+    self.displayArray(pixels)
+    pygame.display.update()
+    pixels = self.scramble(pixels, offset)
+    self.displayArray(pixels)
+    pygame.display.update()
+    return pixels
+
+  def scramble(self, pixels, offset):
+    new = []
+    for i in range(self.pixelY):
+      temp = pixels[i * self.pixelX:i * self.pixelX + self.pixelX]
+      random.shuffle(temp)
+      for i in range(len(temp)):
+        temp[i].x = i * self.edgeSize + (self.edgeSize * offset)
+      new.extend(temp)
+    return new
+
+  def threadBuilder(self, sort):
+    pixels = []
+    threads = []
+    SORT_FUNCS = {'Bubble': self.bubbleSort, 'Selection': self.selectionSort, 'Cocktail': self.cocktailSort,
+                  'Insertion': self.insertionSort, 'Shell': self.shellSort, 'Merge': self.mergeSort,
+                  'Heap': self.heapSort, 'Quick': self.quicksort, 'Bogo': self.bogoSort}
+
+    for i in range(self.numOfSorts):
+      temp = []
+      pixels.append(self.initialiseArray(temp, self.pixelX * i))
+
+      if sort[i] == 'Bubble' or sort[i] == 'Selection' or sort[i] == 'Cocktail' or sort[i] == 'Insertion' or sort[i] == 'Shell':
+        threads.append(threading.Thread(target=SORT_FUNCS[sort[i]], args=(pixels[i], input("f - full array sort. other key - row by row sorting. "), self.pixelX * i), daemon=True))
+      else:
+        threads.append(threading.Thread(target=SORT_FUNCS[sort[i]], args=(pixels[i], self.pixelX * i), daemon=True))
+
+    for i in range(len(threads)):
+      threads[i].start()
+
+  # Main line
+
+  def __init__(self):
+    self.run = True
+    self.pixelX = int(input("No. of X pixels: "))
+    self.pixelY = int(input("No. of Y pixels: "))
+    self.edgeSize = int(input("Size of each pixel edge: "))
+    self.numOfSorts = int(input("No. of Sorts to show: "))
+
+    sort = []
+
+    for i in range(self.numOfSorts):
+      sort.append(input("What sort would you like? (Bubble, Selection, Insertion, Cocktail, Shell, Merge, Heap, Quick, Bogo) "))
+
+    pygame.init()
+    pygame.mouse.set_visible(False)
+    pygame.event.set_blocked(pygame.MOUSEMOTION)
+    pygame.event.set_blocked(pygame.MOUSEBUTTONDOWN)
+    pygame.event.set_blocked(pygame.MOUSEBUTTONUP)
+    pygame.display.set_caption("Sort")
+
+    self.screen = pygame.display.set_mode((self.pixelX * self.edgeSize * self.numOfSorts, self.pixelY * self.edgeSize + 30))
+
+    builder = threading.Thread(target=self.threadBuilder, args=([sort]), daemon=True)
+    builder.start()
+
+    while self.run:
+      for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+          self.run = False
+
+    pygame.time.delay(1000)
+    pygame.quit()
+    sys.exit()
+
+
+sortVisualiser()
